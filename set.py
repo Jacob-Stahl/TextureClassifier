@@ -7,6 +7,7 @@ from scipy import misc
 import numpy as np
 import imageio as io
 from PIL import Image
+
 class TextureDataset(Dataset):
     def __init__(self, root, transform = None):
         self.transform = transform
@@ -32,7 +33,7 @@ class TextureDataset(Dataset):
     def __getitem__(self, idx):
         image_path = self.image_paths[idx]
 
-        label = np.zeros((self.num_catagories, 1))
+        label = np.zeros((self.num_catagories, 1), dtype= np.int_)
         label[self.image_labels[idx]] = 1
         image = Image.open(image_path)
         image = image.resize(self.image_shape)
@@ -40,8 +41,8 @@ class TextureDataset(Dataset):
         image = np.asarray(image, dtype= np.float32)
         image = np.transpose(image, (1,0,2))
 
-        image = torch.tensor(image)
-        label = torch.tensor(label)
+        image = torch.from_numpy(image).float()
+        label = torch.from_numpy(label).long()
 
         sample = (image, label)
 

@@ -36,8 +36,8 @@ def run():
     class Net(nn.Module):
         def __init__(self):
             super().__init__()
-            self.conv1 = torch.nn.Conv2d(3, 8, kernel_size = 3, stride = 1, padding = 1)
-            self.fc1 = nn.Linear(set.image_shape[0]*set.image_shape[1]*8, 196)
+            self.conv1 = torch.nn.Conv2d(3, 3, kernel_size = 3, stride = 1, padding = 1)
+            self.fc1 = nn.Linear(set.image_shape[0]*set.image_shape[1]*3, 196)
             self.fc2 = nn.Linear(196, 128)
             self.fc3 = nn.Linear(128, set.num_catagories)
 
@@ -61,7 +61,7 @@ def run():
         for data in trainset:
             X, Y = data
             X, Y = X.to(device), Y.to(device)
-            output = net(X.view(-1, 3,set.image_shape[0],set.image_shape[1]))\
+            output = net(X.view(-1, 3,set.image_shape[0],set.image_shape[1]))
             loss = F.nll_loss(output, Y.squeeze_())
             loss.backward()
             opt.step()

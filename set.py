@@ -33,8 +33,6 @@ class TextureDataset(Dataset):
     def __getitem__(self, idx):
         image_path = self.image_paths[idx]
 
-        label = np.zeros((self.num_catagories, 1), dtype= np.int_)
-        label[self.image_labels[idx]] = 1
         image = Image.open(image_path)
         image = image.resize(self.image_shape)
 
@@ -42,9 +40,8 @@ class TextureDataset(Dataset):
         image = np.transpose(image, (1,0,2))
 
         image = torch.from_numpy(image).float()
-        label = torch.from_numpy(label).long()
 
-        sample = (image, label)
+        sample = (image, self.image_labels[idx])
 
         if self.transform:
             sample = self.transform(sample)

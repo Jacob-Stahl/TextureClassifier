@@ -10,34 +10,35 @@ import time
 import os
 from set import TextureDataset
 
-if torch.cuda.is_available():
-    device = torch.device("cuda:0")  # you can continue going on here, like cuda:1 cuda:2....etc. 
-    print("Running on GPU")
-else:
-    device = torch.device("cpu")
-    print("Running on the CPU")
-
-root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd\\images\\')
-
-set = TextureDataset(root)
-
-train_set, dev_set = random_split(set, [len(set) - 500, 500])
-
-
-trainset = DataLoader(train_set, batch_size=16, shuffle=True, num_workers=2)
-testset = DataLoader(dev_set, batch_size=16, shuffle=True, num_workers=2)
-
-print(len(dev_set))
-print(len(train_set))
-print(set.image_shape)
-print(set.num_catagories)
-
 def run():
+
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")  # you can continue going on here, like cuda:1 cuda:2....etc. 
+        print("Running on GPU")
+    else:
+        device = torch.device("cpu")
+        print("Running on CPU")
+
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd\\images\\')
+    set = TextureDataset(root)
+
+    train_size = 500 
+    train_set, dev_set = random_split(set, [len(set) - train_size, train_size])
+
+    trainset = DataLoader(train_set, batch_size=4, shuffle=True, num_workers=4)
+    testset = DataLoader(dev_set, batch_size=4, shuffle=True, num_workers=4)
+
+    print("dev set size:     ", len(dev_set))
+    print("train set size:   ", len(train_set))
+    print("image shape:      ", set.image_shape)
+    print("image catagories: ", set.num_catagories)
+
     class Net(nn.Module):
         def __init__(self):
             super().__init__()
-            self.conv1 = torch.nn.Conv2d(3, 3, kernel_size = 3, stride = 1, padding = 1)
-            self.fc1 = nn.Linear(set.image_shape[0]*set.image_shape[1]*3, 196)
+            num_channels = 4
+            self.conv1 = torch.nn.Conv2d(3, num_channels, kernel_size = 3, stride = 1, padding = 1)
+            self.fc1 = nn.Linear(set.image_shape[0]*set.image_shape[1]*num_channels, 196)
             self.fc2 = nn.Linear(196, 128)
             self.fc3 = nn.Linear(128, set.num_catagories)
 
@@ -53,8 +54,8 @@ def run():
             return x
 
     net = Net().to(device)
-    opt = optim.Adam(net.parameters(), lr = 0.0001)
-    epochs = 5
+    opt = optim.Adam(net.parameters(), lr = 0.001)
+    epochs = 16
 
     for epoch in range(epochs):
         tic = time.time()

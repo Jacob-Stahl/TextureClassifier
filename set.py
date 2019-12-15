@@ -37,7 +37,8 @@ class TextureDataset(Dataset):
         image = image.resize(self.image_shape)
 
         image = np.asarray(image, dtype= np.float32)
-        image = np.transpose(image, (1,0,2))
+        image = np.transpose(image, (2,0,1))
+        image = image / 255
 
         image = torch.from_numpy(image).float()
 

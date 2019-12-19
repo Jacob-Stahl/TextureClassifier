@@ -10,6 +10,7 @@ import time
 import os
 import pprint as pp
 import numpy as np
+
 from set import TextureDataset
 
 def out_size(input_size, kernal_size, stride):
@@ -17,7 +18,7 @@ def out_size(input_size, kernal_size, stride):
     print(out)
     return out
 
-def run():
+def train():
 
     if torch.cuda.is_available():
         device = torch.device("cuda:0")  # you can continue going on here, like cuda:1 cuda:2....etc. 
@@ -29,7 +30,8 @@ def run():
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd\\images\\')
     set = TextureDataset(root)
 
-    batch_size = 16
+    epochs = 18
+    batch_size = 56
     test_size = 500
     train_set, dev_set = random_split(set, [len(set) - test_size, test_size])
 
@@ -49,20 +51,21 @@ def run():
         def __init__(self):
             super().__init__()
             self.size = set.image_shape[0]
-            self.conv1 = torch.nn.Conv2d(3, 512, kernel_size = 11, stride = 7)
-            self.size = out_size(self.size, 11, 7)
-            self.conv2 = torch.nn.Conv2d(512, 512, kernel_size = 5, stride = 2)
-            self.size = out_size(self.size, 5, 2)
-            self.conv3 = torch.nn.Conv2d(512, 1024, kernel_size = 3, stride = 1)
-            self.size = out_size(self.size, 3, 1)
+            self.conv1 = torch.nn.Conv2d(3, 512, kernel_size = 11, stride = 5)
+            self.size = out_size(self.size, 11, 5)
             self.pool1 = torch.nn.MaxPool2d(3)
             self.size = self.size // 3
-            self.conv4 = torch.nn.Conv2d(1024, 2048, kernel_size = 3, stride = 1)
-            self.size = out_size(self.size, 3, 1)
-            self.pool2 = torch.nn.MaxPool2d(2)
-            self.size = self.size // 2
+            self.conv2 = torch.nn.Conv2d(512, 128, kernel_size = 1, stride = 1)
+            self.size = out_size(self.size, 1, 1)
+            self.conv3 = torch.nn.Conv2d(128, 512, kernel_size = 4, stride = 2)
+            self.size = out_size(self.size, 3, 2)
+            self.pool2 = torch.nn.MaxPool2d(3)
+            self.size = self.size // 3
+            self.conv4 = torch.nn.Conv2d(512, 128, kernel_size = 1, stride = 1)
+            self.size = out_size(self.size, 1, 1)
 
-            self.fc1 = nn.Linear(self.size*self.size*2048, 1024)
+
+            self.fc1 = nn.Linear(self.size*self.size*128, 1024)
             self.fc2 = nn.Linear(1024, 1024)
             self.fc3 = nn.Linear(1024, set.num_catagories)
 
@@ -102,19 +105,18 @@ def run():
 
                 return output
 
-
             filt1 = conv1.weight
             x = F.relu(self.conv1(x))
 
-            
-
+    PATH = root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models\\')
+    model_name = str(input("model_name> "))
+    PATH =  os.path.join(PATH, model_name)
 
     print("moving model to device...")
     net = Net1().to(device)
-    opt = optim.Adam(net.parameters(), lr = 0.0001)
+    opt = optim.Adam(net.parameters(), lr = 0.0001, weight_decay= 0.05)
     print("done")
     print()
-    epochs = 64
     running_loss = 0.0
 
     for epoch in range(epochs):
@@ -123,7 +125,6 @@ def run():
             X, Y = data
             X, Y = X.to(device), Y.to(device)
             opt.zero_grad()
-            #output = net(X.view(-1, 3,set.image_shape[0],set.image_shape[1]))
             output = net(X)
             loss = F.nll_loss(output, Y.squeeze_())
             loss.backward()
@@ -137,15 +138,22 @@ def run():
             for data in testset:
                 X, Y = data
                 X, Y = X.to(device), Y.to(device)
-                #output = net(X.view(-1, 3,set.image_shape[0],set.image_shape[1]))
                 output = net(X)
                 for idx, i in enumerate(output):
                     if torch.argmax(i) == Y[idx]:
                         correct += 1
                     total += 1
-            print("acc: ", round(correct/total* 100, 3), "%  cost: ", running_loss * (batch_size / len(train_set)))
+
+            acc = round(correct/total* 100, 3)
+            print("acc: ", acc, "%  cost: ", running_loss * (batch_size / len(train_set)))
+            if acc > 24:
+                torch.save(net.state_dict(), PATH)
+                return
+
             #plot_filters(net.conv1.weight.cpu().numpy()[1])
             running_loss = 0.0
 
+    torch.save(net.state_dict(), PATH)
+
 if __name__ == '__main__':
-    run()
+    train()

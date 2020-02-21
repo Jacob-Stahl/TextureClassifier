@@ -31,14 +31,14 @@ def train():
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd/images/')
     set = TextureDataset(root)
 
-    epochs = 16
+    epochs = 64
     batch_size = 148
     learning_rate = 0.00005
     test_size = 500
 
     train_set, dev_set = random_split(set, [len(set) - test_size, test_size])
-    trainset = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4)
-    testset = DataLoader(dev_set, batch_size=batch_size, shuffle=True, num_workers=4)
+    trainset = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=12)
+    testset = DataLoader(dev_set, batch_size=batch_size, shuffle=True, num_workers=12)
 
     print("dev set size:     ", len(dev_set))
     print("train set size:   ", len(train_set))
@@ -48,7 +48,6 @@ def train():
 
     PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/')
     model_name = str(input("model_name> "))
-    PATH =  os.path.join(PATH, model_name)
 
     print("moving model to device...")
 
@@ -63,6 +62,7 @@ def train():
     print()
 
     distance = nn.MSELoss()
+    criterion = nn.CrossEntropyLoss()
     running_loss = 0.0
     for epoch in range(epochs):
         tic = time.time()
@@ -72,11 +72,11 @@ def train():
             
             cls_opt.zero_grad()
             encoding = model.encoder(X)
-            decoding = model.decoder(X)
+            decoding = model.decoder(encoding)
             output = model.classif(encoding)
 
-            cls_loss = F.nll_loss(output, Y.squeeze_())
-            cls_loss.backward()
+            cls_loss = criterion(output, Y.squeeze_())
+            cls_loss.backward(retain_graph = True)
             cls_opt.step()
 
             dec_opt.zero_grad()
@@ -88,15 +88,17 @@ def train():
 
 
         toc = time.time()
-        print("Epoch: ", epoch+1,"  seconds: ", round(toc - tic, 1),"  classifer_loss: ", round(cls_loss.item(), 2),"  decoder_loss: ", round(dec_loss.item(), 2)
+        print("Epoch: ", epoch+1,"  seconds: ", round(toc - tic, 1),"  classifer_loss: ", round(cls_loss.item(), 2),"  decoder_loss: ", round(dec_loss.item(), 2))
     
-    enc_name = "enc" + model_name
-    dec_name = "dec" + model_name
-    cls_name = "cls" + model_name
+    enc_name = "enc_" + model_name
+    dec_name = "dec_" + model_name
+    cls_name = "cls_" + model_name
 
     torch.save(model.encoder.state_dict(), os.path.join(PATH, enc_name))
     torch.save(model.decoder.state_dict(), os.path.join(PATH, dec_name)) 
-    torch.save(model.classif.state_dict(), os.path.join(PATH, cls_name))  
+    torch.save(model.classif.state_dict(), os.path.join(PATH, cls_name))
+    print("saved !")
+    print()
 
 def test():
 
@@ -152,29 +154,39 @@ def dream_test():
 
     PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/')
     model_name = str(input("model_name> "))
-    PATH =  os.path.join(PATH, model_name)
 
-    net = Net1()
-    net.load_state_dict(torch.load(PATH))
-    net.to(device)
-    net.eval()
+    enc_name = "enc_" + model_name
+    dec_name = "dec_" + model_name
+    cls_name = "cls_" + model_name
 
-    for i in [0, 10, 20, 69, 4000, 600]:
+    print("moving model to device...")
 
-        input_img = set[i][0].unsqueeze_(0)
-        print(input_img.size())
-        out_img = net(input_img.to(device), dream = True)
-        print(out_img.size())
-        out_img = out_img.squeeze_()
-        print(out_img.size())
-        out_img = out_img.cpu()
-        print(out_img.size())
-        out_img = out_img.detach().numpy()
-        out_img = np.uint8(out_img*255)
-        out_img = np.swapaxes(out_img, 0, 2)
-        out_img = PIL.Image.fromarray(out_img)
+    model = Model(256)
 
-        out_img.show()
+    model.decoder.load_state_dict(torch.load(os.path.join(PATH, dec_name)))
+    model.decoder.to(device)
+    model.decoder.eval()
+
+    model.encoder.load_state_dict(torch.load(os.path.join(PATH, enc_name)))
+    model.encoder.to(device)
+    model.encoder.eval()
+
+    for i in [0, 10]:
+
+        for j in [69, 420]:
+            img1 = set[i][0].unsqueeze_(0)
+            img2 = set[j][0].unsqueeze_(0)
+
+            out_img = model.dream(img1.to(device), img2.to(device))
+
+            out_img = out_img.squeeze_()
+            out_img = out_img.cpu()
+            out_img = out_img.detach().numpy()
+            out_img = np.uint8(out_img*255)
+            out_img = np.swapaxes(out_img, 0, 2)
+            out_img = PIL.Image.fromarray(out_img)
+
+            out_img.show()
 
 if __name__ == '__main__':
 

@@ -11,8 +11,9 @@ import os
 import pprint as pp
 import numpy as np
 import PIL
+from math import ceil
 
-DEBUG = False
+DEBUG = True
 
 class Encoder(nn.Module):
 
@@ -53,19 +54,32 @@ class Encoder(nn.Module):
         return x
 
 class Decoder(nn.Module):
-    def __init__(self, encoding_channels):
+    def __init__(self, encoding_channels, dim):
 
         super().__init__()
         self.encoding_channels = encoding_channels
+        self.dim = dim
         if DEBUG == True:
             print(self)
+            print(self.dim)
 
-        self.conv1 = torch.nn.ConvTranspose2d(self.encoding_channels, 16, kernel_size= 5, stride= 1, padding= 2)
+        self.conv1 = torch.nn.ConvTranspose2d(self.encoding_channels, 16, kernel_size= 5, stride= 2, padding= 2)
         self.bn1 = torch.nn.BatchNorm2d(16)
-        self.conv2 = torch.nn.ConvTranspose2d(16, 8, kernel_size= 5, stride= 1, padding= 2)
+        self.dim = 2 * (self.dim - 1) + 5 - 2 * 2
+        if DEBUG == True:
+            print(self.dim)
+        self.conv2 = torch.nn.ConvTranspose2d(16, 8, kernel_size= 5, stride= 2, padding= 2)
         self.bn2 = torch.nn.BatchNorm2d(8)
-        self.conv3 = torch.nn.ConvTranspose2d(8, 3, kernel_size= 5, stride= 1, padding= 2)
-        self.conv4 = torch.nn.Conv2d(3, 3, kernel_size= 1, stride= 1, padding= 0)
+        self.dim = 2 * (self.dim - 1) + 5 - 2 * 2
+        if DEBUG == True:
+            print(self.dim)
+        self.conv3 = torch.nn.ConvTranspose2d(8, 3, kernel_size= 6, stride= 1, padding= 2)
+        self.dim = 1 * (self.dim - 1) + 6 - 2 * 1
+        if DEBUG == True:
+            print(self.dim)
+        self.conv4 = torch.nn.Conv2d(3, 3, kernel_size= 1, stride= 1, padding= 1)
+        if DEBUG == True:
+            print(self.dim)
 
     def forward(self, x):
 
@@ -142,7 +156,7 @@ class Model():
     def __init__(self, train_size, encoding_channels = 3):
 
         self.encoder = Encoder(encoding_channels = encoding_channels, dim = train_size)
-        self.decoder = Decoder(encoding_channels = encoding_channels)
+        self.decoder = Decoder(encoding_channels = encoding_channels, dim = self.encoder.dim)
         self.classif = Classifier(encoding_channels = encoding_channels, dim = self.encoder.dim)
         self.encoding_channels = encoding_channels
 
@@ -153,6 +167,6 @@ class Model():
 
         squash = (enc1 + enc2) / 2
 
-        img_out =  Decoder(squash)
+        img_out =  self.decoder(squash)
 
         return img_out

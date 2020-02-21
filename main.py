@@ -21,84 +21,80 @@ else:
     device = torch.device("cpu")
     print("Running on CPU")
 
-def out_size(input_size, kernal_size, stride):
-    out = ((input_size - kernal_size) // stride) + 1
-    print(out)
-    return out
-
 def pprint_dict(dict_):
     for key in dict_:
         print(dict_[key]," : ", key)
 
-class Net1(nn.Module):
+class Net():
 
-    def __init__(self):
-        super().__init__()
-        self.size = 256
-        self.conv1 = torch.nn.Conv2d(3, 64, kernel_size = 7, stride = 4)
-        self.size = out_size(self.size, 7, 4)
-        self.conv2 = torch.nn.Conv2d(64, 128, kernel_size = 5, stride = 2)
-        self.size = out_size(self.size, 5, 2)
-        self.conv3 = torch.nn.Conv2d(128, 256, kernel_size = 3, stride = 2)
-        self.size = out_size(self.size, 3, 2)
-        self.pool1 = torch.nn.MaxPool2d(2)
-        self.size = self.size // 2
-        self.conv4 = torch.nn.Conv2d(256, 32, kernel_size = 1, stride = 1)
-        self.size = out_size(self.size, 1, 1)
-        self.fc1 = nn.Linear(self.size*self.size*32, 512)
-        self.fc2 = nn.Linear(512, 47)
-        self.bn1 = nn.BatchNorm1d(512)
+    class Encoder(nn.Model):
+        super().__init__(self):
+        
+            self.conv1 = torch.nn.Conv2d(3, 8, kernel_size= 5, stride= 1, padding= 2)
+            self.bn1 = torch.nn.BatchNorm2d(8)
+            self.pool1 = torch.nn.MaxPool2d(kernel_size= 2)
+            self.conv2 = torch.nn.Conv2d(8, 16, kernel_size= 5, stride= 1, padding= 2)
+            self.bn2 = torch.nn.BatchNorm2d(16)
+            self.pool2 = torch.nn.MaxPool2d(kernel_size= 2)
+            self.conv3 = torch.nn.Conv2d(16, self.encoding_channels, kernel_size= 5, stride= 1, padding= 2)
+    
+        def forward(self, x):
 
-    def decoder(self, x):
-
-        print("echo")
-
-        def deconv(x, layer):
-            weights = layer.weight
-            kernal_size = layer.kernel_size
-            stride = layer.stride 
-            out_channels = layer.in_channels
-            in_channels = layer.out_channels
-
-            self.convt = torch.nn.ConvTranspose2d(in_channels=in_channels, out_channels=out_channels, kernel_size=kernal_size, stride=stride)
-            self.convt.weight = weights
-            self.convt.to(device)
-            
-            x = self.convt(x)
+            x = self.conv1(x)
+            x = F.leaky_relu(self.bn1(x))
+            x = self.pool1(x)
+            x = self.conv2(x)
+            x = F.leaky_relu(self.bn2(x))
+            x = self.pool2(x)
+            x = F.sigmoid(self.conv3(x))
 
             return x
 
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = deconv(x, self.conv3)
-        x = deconv(x, self.conv2)
-        x = deconv(x, self.conv1)
+    class Decoder(nn.Model):
+        super().__init__(self):
 
-        return x
+            self.conv1 = torch.nn.ConvTranspose2d(8, self.encoding_channels, kernel_size= 5, stride= 1, padding= 2)
+            self.bn1 = torch.nn.BatchNorm2d(8)
+            self.pool1 = torch.nn.MaxPool2d(kernel_size= 2)
+            self.conv2 = torch.nn.ConvTranspose2d(8, 16, kernel_size= 5, stride= 1, padding= 2)
+            self.bn2 = torch.nn.BatchNorm2d(16)
+            self.pool2 = torch.nn.MaxPool2d(kernel_size= 2)
+            self.conv3 = torch.nn.ConvTranspose2d(16, 3, kernel_size= 5, stride= 1, padding= 2)
+            self.conv4 = torch.nn.Conv2d(3, 3, kernel_size= 1, stride= 1, padding= 0)
+    
+        def forward(self, x):
 
-    def encoder(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = F.relu(self.pool1(x))
-        x = F.relu(self.conv4(x))
-        x = x.view(x.size()[0], -1)
-        x = self.bn1(F.relu(self.fc1(x)))
-        x = F.log_softmax(self.fc2(x),-1)
+            x = self.conv1(x)
+            x = F.leaky_relu(self.bn1(x))
+            x = self.pool1(x)
+            x = self.conv2(x)
+            x = F.leaky_relu(self.bn2(x))
+            x = self.pool2(x)
+            x = F.sigmoid(self.conv3(x)
+            x = self.conv4(x)
 
-        return x
+            return x
 
-    def forward(self, x, dream = False):
+    __init__(self, encoding_channels = 3):
+        encoder = Encoder()
+        decoder = Decoder()
+        self.encoding_channels = encoding_channels
 
-        if dream == False:
-            return self.encoder(x)
-        else:
-            return self.decoder(x)
+    dream(self, img1, img2):
 
+        enc1 = Encoder(img1)
+        enc1 = Eecoder(img2)
+
+        squash = (enc1, enc2) / 2
+
+        img_out =  Decoder(squash)
+
+        return img_out
+
+        
 def train():
 
-    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd\\images\\')
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd/images/')
     set = TextureDataset(root)
 
     epochs = 128
@@ -119,7 +115,7 @@ def train():
     print("image catagories: ", set.num_catagories)
     print("total images:     ", len(set))
 
-    PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models\\')
+    PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/')
     model_name = str(input("model_name> "))
     PATH =  os.path.join(PATH, model_name)
 
@@ -184,12 +180,12 @@ def test():
         device = torch.device("cpu")
         print("Running on CPU")
 
-    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd\\images\\')
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd/images/')
     set = TextureDataset(root)
 
     testset = DataLoader(set, batch_size=56, shuffle=True, num_workers=4)
 
-    PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models\\')
+    PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/')
     model_name = str(input("model_name> "))
     PATH =  os.path.join(PATH, model_name)
 
@@ -221,12 +217,12 @@ def dream_test():
         device = torch.device("cpu")
         print("Running on CPU")
 
-    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd\\images\\')
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd/images/')
     set = TextureDataset(root)
 
     testset = DataLoader(set, batch_size=56, shuffle=True, num_workers=4)
 
-    PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models\\')
+    PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/')
     model_name = str(input("model_name> "))
     PATH =  os.path.join(PATH, model_name)
 

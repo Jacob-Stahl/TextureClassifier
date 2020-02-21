@@ -69,7 +69,7 @@ class TextureDataset(Dataset):
 
 if __name__ == '__main__':
 
-    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd\\images\\')
+    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd/images/')
 
     trans = transforms.Compose([
     transforms.RandomHorizontalFlip(p=0.5),

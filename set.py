@@ -15,8 +15,11 @@ class TextureDataset(Dataset):
         self.image_paths = []
         self.image_labels = []
         self.num_catagories = 0
+        self.dict_ = {}
         label = 0
         for texture in os.listdir(root):
+
+            self.dict_[texture] = 0
             texture_folder = os.path.join(root, texture)
 
             for image in os.listdir(texture_folder):
@@ -59,12 +62,21 @@ class TextureDataset(Dataset):
 
         image.show()
 
+    def get_dict(self):
+
+        return self.dict_
+
 
 if __name__ == '__main__':
 
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd\\images\\')
 
-    set = TextureDataset(root)
+    trans = transforms.Compose([
+    transforms.RandomHorizontalFlip(p=0.5),
+    transforms.RandomRotation(degrees = 90),
+    transforms.ToTensor(),
+])
+    set = TextureDataset(root, trans)
 
     dataloader = DataLoader(set, batch_size=5, shuffle=True, num_workers=2)    
     

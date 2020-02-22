@@ -26,14 +26,37 @@ def pprint_dict(dict_):
     for key in dict_:
         print(dict_[key]," : ", key)
 
+def output_to_image(out_img):
+
+    out_img = out_img.squeeze_()
+    out_img = out_img.cpu()
+    out_img = out_img.detach().numpy()
+    out_img = np.uint8(out_img*255)
+    out_img = np.swapaxes(out_img, 0, 2)
+    out_img = PIL.Image.fromarray(out_img)
+    out_img = out_img.rotate(270, expand = True)
+    out_img = out_img.transpose(PIL.Image.FLIP_LEFT_RIGHT)
+
+    return out_img
+
+def image_to_input(img):
+
+    img = np.asarray(img, dtype= np.float32)
+    img = np.transpose(img, (2,0,1))
+    img = img / 255
+    img = torch.from_numpy(img).float()
+    img = img.unsqueeze(0)
+    img = img.to(device)
+
+    return img
+
 def train():
 
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd/images/')
     set = TextureDataset(root)
 
-    epochs = 64
-    batch_size = 148
-    learning_rate = 0.00005
+    epochs = 256
+    batch_size = 128
     test_size = 500
 
     train_set, dev_set = random_split(set, [len(set) - test_size, test_size])
@@ -56,14 +79,14 @@ def train():
     model.decoder.to(device)
     model.encoder.to(device)
     
-    dec_opt = optim.Adam(model.decoder.parameters(), weight_decay=1e-5)
+    dec_opt = optim.Adam(model.decoder.parameters())
     cls_opt = optim.Adam(model.classif.parameters(), weight_decay=1e-5)
     print("done")
     print()
 
     distance = nn.MSELoss()
     criterion = nn.CrossEntropyLoss()
-    running_loss = 0.0
+    loss_dict = {"cls": [], "dec": []}
     for epoch in range(epochs):
         tic = time.time()
         for data in trainset:
@@ -83,12 +106,14 @@ def train():
 
             dec_loss = distance(decoding, X)
             dec_loss.backward()
-            running_loss += dec_loss.item()
             dec_opt.step()
+            
+            #loss_dict["cls"] = loss_dict["cls"].append(cls_loss.item())
+            #loss_dict["dec"] = loss_dict["dec"].append(dec_loss.item())
 
 
         toc = time.time()
-        print("Epoch: ", epoch+1,"  seconds: ", round(toc - tic, 1),"  classifer_loss: ", round(cls_loss.item(), 2),"  decoder_loss: ", round(dec_loss.item(), 2))
+        print("Epoch: ", epoch+1,"  seconds: ", round(toc - tic, 1),"  classifer_loss: ", round(cls_loss.item(), 4),"  decoder_loss: ", round(dec_loss.item(), 4))
     
     enc_name = "enc_" + model_name
     dec_name = "dec_" + model_name
@@ -102,25 +127,33 @@ def train():
 
 def test():
 
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")  # you can continue going on here, like cuda:1 cuda:2....etc. 
-        print("Running on GPU")
-    else:
-        device = torch.device("cpu")
-        print("Running on CPU")
-
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd/images/')
     set = TextureDataset(root)
 
-    testset = DataLoader(set, batch_size=56, shuffle=True, num_workers=4)
+    testset = DataLoader(set, batch_size=1, shuffle=True, num_workers=8)
 
     PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/')
     model_name = str(input("model_name> "))
-    PATH =  os.path.join(PATH, model_name)
 
-    net = Net1().to(device)
-    net.load_state_dict(torch.load(PATH))
-    net.eval()
+    enc_name = "enc_" + model_name
+    dec_name = "dec_" + model_name
+    cls_name = "cls_" + model_name
+
+    print("moving model to device...")
+
+    model = Model(256)
+
+    model.decoder.load_state_dict(torch.load(os.path.join(PATH, dec_name)))
+    model.decoder.to(device)
+    model.decoder.eval()
+
+    model.encoder.load_state_dict(torch.load(os.path.join(PATH, enc_name)))
+    model.encoder.to(device)
+    model.encoder.eval()
+
+    model.classif.load_state_dict(torch.load(os.path.join(PATH, cls_name)))
+    model.classif.to(device)
+    model.classif.eval()
 
     tallies = set.get_dict()
     print("image shape:      ", set.image_shape)
@@ -131,7 +164,11 @@ def test():
         for data in testset:
             X, Y = data
             X, Y = X.to(device), Y.to(device)
-            output = net(X)
+
+
+            encoding = model.encoder(X)
+            output = model.classif(encoding)
+
             for idx, i in enumerate(output):
                 from_hot = torch.argmax(i)
                 if from_hot == Y[idx]:
@@ -160,33 +197,32 @@ def dream_test():
     cls_name = "cls_" + model_name
 
     print("moving model to device...")
-
     model = Model(256)
-
     model.decoder.load_state_dict(torch.load(os.path.join(PATH, dec_name)))
     model.decoder.to(device)
     model.decoder.eval()
-
     model.encoder.load_state_dict(torch.load(os.path.join(PATH, enc_name)))
     model.encoder.to(device)
     model.encoder.eval()
+    print("done!")
 
-    for i in [0, 10]:
+    test_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_images/')
+    output_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_outputs/')
+    test_images = os.listdir(test_folder)
+    print("pulling images from : ", test_folder)
+    print("dumping to          : ", output_folder)
+    print("counting sheep...")
 
-        for j in [69, 420]:
-            img1 = set[i][0].unsqueeze_(0)
-            img2 = set[j][0].unsqueeze_(0)
+    for image in test_images:
 
-            out_img = model.dream(img1.to(device), img2.to(device))
-
-            out_img = out_img.squeeze_()
-            out_img = out_img.cpu()
-            out_img = out_img.detach().numpy()
-            out_img = np.uint8(out_img*255)
-            out_img = np.swapaxes(out_img, 0, 2)
-            out_img = PIL.Image.fromarray(out_img)
-
-            out_img.show()
+        print("     ", image)
+        img = PIL.Image.open(os.path.join(test_folder, image))
+        model_input = image_to_input(img)
+        model_output = model.dream(model_input)
+        dream_image = output_to_image(model_output)
+        
+        dream_image.save(os.path.join(output_folder, "dream_" + image))
+        
 
 if __name__ == '__main__':
 

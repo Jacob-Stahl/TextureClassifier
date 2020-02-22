@@ -63,21 +63,21 @@ class Decoder(nn.Module):
             print(self)
             print(self.dim)
 
-        self.conv1 = torch.nn.ConvTranspose2d(self.encoding_channels, 16, kernel_size= 5, stride= 2, padding= 2)
-        self.bn1 = torch.nn.BatchNorm2d(16)
+        self.conv1 = torch.nn.ConvTranspose2d(self.encoding_channels, 32, kernel_size= 5, stride= 2, padding= 2)
+        self.bn1 = torch.nn.BatchNorm2d(32)
         self.dim = 2 * (self.dim - 1) + 5 - 2 * 2
         if DEBUG == True:
             print(self.dim)
-        self.conv2 = torch.nn.ConvTranspose2d(16, 8, kernel_size= 5, stride= 2, padding= 2)
-        self.bn2 = torch.nn.BatchNorm2d(8)
+        self.conv2 = torch.nn.ConvTranspose2d(32, 16, kernel_size= 5, stride= 2, padding= 2)
+        self.bn2 = torch.nn.BatchNorm2d(16)
         self.dim = 2 * (self.dim - 1) + 5 - 2 * 2
         if DEBUG == True:
             print(self.dim)
-        self.conv3 = torch.nn.ConvTranspose2d(8, 3, kernel_size= 6, stride= 1, padding= 2)
+        self.conv3 = torch.nn.ConvTranspose2d(16, 8, kernel_size= 6, stride= 1, padding= 2)
         self.dim = 1 * (self.dim - 1) + 6 - 2 * 1
         if DEBUG == True:
             print(self.dim)
-        self.conv4 = torch.nn.Conv2d(3, 3, kernel_size= 1, stride= 1, padding= 1)
+        self.conv4 = torch.nn.Conv2d(8, 3, kernel_size= 1, stride= 1, padding= 1)
         if DEBUG == True:
             print(self.dim)
 
@@ -153,20 +153,16 @@ class Classifier(nn.Module):
 
     
 class Model():
-    def __init__(self, train_size, encoding_channels = 3):
+    def __init__(self, train_size, encoding_channels = 10):
 
         self.encoder = Encoder(encoding_channels = encoding_channels, dim = train_size)
         self.decoder = Decoder(encoding_channels = encoding_channels, dim = self.encoder.dim)
         self.classif = Classifier(encoding_channels = encoding_channels, dim = self.encoder.dim)
         self.encoding_channels = encoding_channels
 
-    def dream(self, img1, img2):
+    def dream(self, img1):
 
-        enc1 = self.encoder.forward(img1)
-        enc2 = self.encoder.forward(img2)
-
-        squash = (enc1 + enc2) / 2
-
-        img_out =  self.decoder(squash)
+        enc = self.encoder.forward(img1)
+        img_out =  self.decoder(enc)
 
         return img_out

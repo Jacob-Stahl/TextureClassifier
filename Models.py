@@ -108,6 +108,7 @@ class Res_encoder(nn.Module):
 
 class Res_decoder(nn.Module):
     def __init__(self, encoding_channels, dim):
+        super().__init__()
         self.encoding_channels = encoding_channels
         self.dim = dim
         if DEBUG == True:
@@ -128,24 +129,24 @@ class Res_decoder(nn.Module):
         self.conv2c = torch.nn.ConvTranspose2d(32, 32, kernel_size = 3, padding = 1)
 
         self.bn2 = torch.nn.BatchNorm2d(32)
-        self.conv3 = torch.nn.ConvTranspose2d(32, 16, stride = 2, kernel_size = 3, padding= 1)
+        self.conv3 = torch.nn.ConvTranspose2d(32, 16, stride = 2, kernel_size = 3, padding= 0)
 
         self.conv3a = torch.nn.ConvTranspose2d(16, 16, kernel_size = 3, padding= 1)
         self.conv3b = torch.nn.ConvTranspose2d(16, 16, kernel_size = 3, padding= 1)
         self.conv3c = torch.nn.ConvTranspose2d(16, 16, kernel_size = 3, padding= 1)
 
         self.bn3 = torch.nn.BatchNorm2d(16)
-        self.conv4 = torch.nn.ConvTranspose2d(16, 8, stride = 2, kernel_size = 3, padding= 1)
+        self.conv4 = torch.nn.ConvTranspose2d(16, 8, stride = 2, kernel_size = 3, padding= 0)
 
         self.conv4a = torch.nn.ConvTranspose2d(8, 8, kernel_size = 3, padding= 1)
         self.conv4b = torch.nn.ConvTranspose2d(8, 8, kernel_size = 3, padding= 1)
         self.conv4c = torch.nn.ConvTranspose2d(8, 8, kernel_size = 3, padding= 1)
 
-        self.conv5 = torch.nn.ConvTranspose2d(8, 3, kernel_size = 3, padding = 1)
+        self.conv5 = torch.nn.ConvTranspose2d(8, 3, kernel_size = 2, padding = 0)
     
     def forward(self, x):
 
-        x = self.conv1(x))
+        x = self.conv1(x)
         res = x
         x = F.leaky_relu(x)
         x = F.leaky_relu(self.conv1a(x))
@@ -180,8 +181,9 @@ class Res_decoder(nn.Module):
 
         return x
 
-class Conv_classifier:
+class Conv_classifier(nn.Module):
     def __init__(self, encoding_channels, dim):
+        super().__init__()
         self.encoding_channels = encoding_channels
         self.dim = dim
 
@@ -247,6 +249,30 @@ class Conv_classifier:
         x = F.sigmoid(self.conv6(x))
 
         return torch.squeeze(x)
+
+class Res_Model():
+    def __init__(self, train_size = 256, encoding_channels = 64):
+
+        self.encoder = Res_encoder(encoding_channels = encoding_channels, dim = train_size)
+        self.decoder = Res_decoder(encoding_channels = encoding_channels, dim = self.encoder.dim)
+        self.classif = Conv_classifier(encoding_channels = encoding_channels, dim = self.encoder.dim)
+        self.encoding_channels = encoding_channels
+
+    def simple_dream(self, img1):
+
+        enc = self.encoder.forward(img1)
+        img_out =  self.decoder(enc)
+
+        return img_out
+
+    def noise_injection(self, img):
+
+        enc = self.encoder(img)
+        noise = (torch.rand(enc.size()) - .5) / 10
+        noise = noise.to(enc.device)
+        out_img = self.decoder(enc + noise)
+
+        return out_img
 
 class Encoder(nn.Module):
 
@@ -412,7 +438,7 @@ class Model():
 
         enc1 = self.encoder(img1)
         enc2 = self.encoder(img2)
-        mg_out = self.decoder(enc1 * enc2)
+        img_out = self.decoder(enc1 * enc2)
 
         return img_out
 

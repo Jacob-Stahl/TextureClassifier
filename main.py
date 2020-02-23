@@ -11,8 +11,8 @@ import os
 import pprint as pp
 import numpy as np
 import PIL
-from Models import Model
-
+from Models import Res_Model as Model
+from torchsummary import summary
 from set import TextureDataset
 
 if torch.cuda.is_available():
@@ -56,7 +56,7 @@ def train():
     set = TextureDataset(root)
 
     epochs = 256
-    batch_size = 128
+    batch_size = 84
     test_size = 500
 
     train_set, dev_set = random_split(set, [len(set) - test_size, test_size])
@@ -75,9 +75,14 @@ def train():
     print("moving model to device...")
 
     model = Model(set.image_shape[0])
+
     model.classif.to(device)
     model.decoder.to(device)
     model.encoder.to(device)
+
+    #summary(model.encoder, (3, 256, 256))
+    #summary(model.decoder, (64, 64, 64)) 
+    #summary(model.decoder, (64, 64, 64)) 
     
     dec_opt = optim.Adam(model.decoder.parameters())
     cls_opt = optim.Adam(model.classif.parameters(), weight_decay=1e-5)
@@ -185,9 +190,6 @@ def dream_test():
         print("Running on CPU")
 
     root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd/images/')
-    set = TextureDataset(root)
-
-    testset = DataLoader(set, batch_size=56, shuffle=True, num_workers=4)
 
     PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/')
     model_name = str(input("model_name> "))
@@ -210,6 +212,7 @@ def dream_test():
     test_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_images/')
     output_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_outputs/')
     test_images = os.listdir(test_folder)
+
     print("pulling images from : ", test_folder)
     print("dumping to          : ", output_folder)
     print("counting sheep...")
@@ -218,9 +221,10 @@ def dream_test():
         print("     ", image)
         img = PIL.Image.open(os.path.join(test_folder, image))
         model_input = image_to_input(img)
-        model_output = model.noise_injection(model_input)
+        model_output = model.simple_dream(model_input)
         dream_image = output_to_image(model_output)
-        
+        del model_output
+        del model_input
         dream_image.save(os.path.join(output_folder, "dream_" + image))
 
 if __name__ == '__main__':

@@ -205,6 +205,7 @@ def dream_test():
     model.encoder.to(device)
     model.encoder.eval()
     print("done!")
+    print("dream functions: ")
 
     test_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_images/')
     output_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'test_outputs/')
@@ -214,15 +215,13 @@ def dream_test():
     print("counting sheep...")
 
     for image in test_images:
-
         print("     ", image)
         img = PIL.Image.open(os.path.join(test_folder, image))
         model_input = image_to_input(img)
-        model_output = model.dream(model_input)
+        model_output = model.noise_injection(model_input)
         dream_image = output_to_image(model_output)
         
         dream_image.save(os.path.join(output_folder, "dream_" + image))
-        
 
 if __name__ == '__main__':
 

@@ -36,8 +36,10 @@ def output_to_image(out_img):
     out_img = PIL.Image.fromarray(out_img)
     out_img = out_img.rotate(270, expand = True)
     out_img = out_img.transpose(PIL.Image.FLIP_LEFT_RIGHT)
-
-    return out_img
+    out = out_img
+    del out_img
+    torch.cuda.empty_cache()
+    return out
 
 def image_to_input(img):
 
@@ -48,7 +50,11 @@ def image_to_input(img):
     img = img.unsqueeze(0)
     img = img.to(device)
 
-    return img
+    out = img
+    del img
+    torch.cuda.empty_cache()
+
+    return out
 
 def train():
 
@@ -80,9 +86,16 @@ def train():
     model.decoder.to(device)
     model.encoder.to(device)
 
-    #summary(model.encoder, (3, 256, 256))
-    #summary(model.decoder, (64, 64, 64)) 
-    #summary(model.decoder, (64, 64, 64)) 
+    option = str(input("load previous parameters? (Y / N)> "))
+    if option == "Y"
+        model.decoder.load_state_dict(torch.load(os.path.join(PATH, dec_name)))
+        model.encoder.load_state_dict(torch.load(os.path.join(PATH, enc_name)))
+        model.classif.load_state_dict(torch.load(os.path.join(PATH, cls_name)))
+        
+    model.classif.to(device)
+    model.decoder.to(device)
+    model.encoder.to(device)
+
     
     dec_opt = optim.Adam(model.decoder.parameters())
     cls_opt = optim.Adam(model.classif.parameters(), weight_decay=1e-5)
@@ -181,15 +194,22 @@ def test():
 
     pprint_dict(tallies)
 
-def dream_test():
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")  # you can continue going on here, like cuda:1 cuda:2....etc. 
-        print("Running on GPU")
-    else:
-        device = torch.device("cpu")
-        print("Running on CPU")
+def dream():
+    def shallow_dream(encoding, model, num_iterations, cls_layer, lr):
+        
+        encoding = torch.autograd.Variable(encoding, requires_grad=True)
+        layers = list(model.classif.modules())
 
-    root = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'dtd/images/')
+        model.classif.zero_grad()
+        for i in range(num_iterations):
+            output_encoding = encoding
+            for layer in range(cls_layer):
+                output_encoding = layers[layer + 1](output_encoding)
+            loss = output_encoding.norm()
+            loss.backward()
+            encoding.data = encoding.data + lr * encoding.grad.data
+
+        return encoding
 
     PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'models/')
     model_name = str(input("model_name> "))
@@ -206,6 +226,9 @@ def dream_test():
     model.encoder.load_state_dict(torch.load(os.path.join(PATH, enc_name)))
     model.encoder.to(device)
     model.encoder.eval()
+    model.classif.load_state_dict(torch.load(os.path.join(PATH, cls_name)))
+    model.classif.to(device)
+    model.classif.eval()
     print("done!")
     print("dream functions: ")
 
@@ -221,10 +244,16 @@ def dream_test():
         print("     ", image)
         img = PIL.Image.open(os.path.join(test_folder, image))
         model_input = image_to_input(img)
-        model_output = model.simple_dream(model_input)
+        encoding = model.encoder(model_input)
+        dream_encoding = shallow_dream(encoding = encoding, model = model, num_iterations = 3, cls_layer = 4, lr = 0.1)
+        model_output = model.decoder(dream_encoding)
         dream_image = output_to_image(model_output)
+
         del model_output
         del model_input
+        del dream_encoding
+        torch.cuda.empty_cache()
+
         dream_image.save(os.path.join(output_folder, "dream_" + image))
 
 if __name__ == '__main__':
@@ -245,4 +274,4 @@ if __name__ == '__main__':
         if option == 2:
             test()
         if option == 3:
-            dream_test()
+            dream()
